@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT-PWR · 시뮬레이터 포털</title>
+<style>
+    :root {
+        --bg: #060708;
+        --panel: #0c0e10;
+        --line: #24282d;
+        --text: #e8eaed;
+        --dim: #7a828c;
+        --blue: #4d9fff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mono {
+        font-family: "IBM Plex Mono", Consolas, "Courier New", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+    }
+
+    /* ── 상단 상태 바 ───────────────────────── */
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--line);
+    }
+    header .sys::before {
+        content: "●";
+        color: var(--blue);
+        margin-right: 8px;
+        font-size: 0.6rem;
+        vertical-align: 1px;
+    }
+
+    /* ── 본문 ──────────────────────────────── */
+    main {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        padding: 48px 28px;
+    }
+    .wrap {
+        width: 100%;
+        max-width: 880px;
+        margin: 0 auto;
+    }
+
+    .head-row {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 32px;
+        margin-bottom: 56px;
+    }
+
+    h1 {
+        margin: 0 0 10px;
+        font-size: clamp(2rem, 5vw, 3.4rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+    }
+    h1 em {
+        font-style: normal;
+        color: var(--blue);
+    }
+    .sub {
+        margin: 0;
+        color: var(--dim);
+        font-size: 0.95rem;
+        max-width: 42ch;
+        line-height: 1.6;
+    }
+
+    /* 궤도 다이어그램 (시그니처 요소) */
+    .orbit {
+        flex-shrink: 0;
+        width: 150px;
+        height: 150px;
+    }
+    .orbit circle.path {
+        fill: none;
+        stroke: var(--line);
+        stroke-dasharray: 3 5;
+    }
+    .orbit circle.earth {
+        fill: none;
+        stroke: var(--dim);
+    }
+    .orbit .sat { fill: var(--blue); }
+    .orbit .spin {
+        transform-origin: 75px 75px;
+        animation: orbit 14s linear infinite;
+    }
+    @keyframes orbit { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+        .orbit .spin { animation: none; }
+    }
+
+    /* ── 모듈 목록 ─────────────────────────── */
+    .modules { border-top: 1px solid var(--line); }
+
+    .module {
+        display: grid;
+        grid-template-columns: 90px 1fr auto;
+        align-items: center;
+        gap: 24px;
+        padding: 26px 8px;
+        border-bottom: 1px solid var(--line);
+        text-decoration: none;
+        color: inherit;
+        position: relative;
+    }
+
+    .module .name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 4px;
+    }
+    .module .desc {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--dim);
+    }
+
+    /* 링크 인디케이터: 시뮬레이션의 전송 연결선을 그대로 차용 */
+    .link-line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .link-line .track {
+        width: 72px;
+        border-top: 1px dashed var(--line);
+        transition: border-color 0.15s;
+    }
+    .link-line .state { min-width: 74px; text-align: right; }
+
+    .module:hover { background: var(--panel); }
+    .module:hover .track {
+        border-top-style: solid;
+        border-color: var(--blue);
+    }
+    .module:hover .state { color: var(--blue); }
+    .module:focus-visible {
+        outline: 1px solid var(--blue);
+        outline-offset: -1px;
+    }
+
+    footer {
+        padding: 14px 28px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+    }
+
+    @media (max-width: 640px) {
+        .head-row { flex-direction: column; align-items: flex-start; }
+        .orbit { width: 110px; height: 110px; order: -1; }
+        .module { grid-template-columns: 1fr; gap: 8px; }
+        .link-line { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <span class="mono sys">SAT-PWR GROUND CONSOLE</span>
+    <span class="mono" id="clock">--:--:-- UTC</span>
+</header>
+
+<main>
+    <div class="wrap">
+        <div class="head-row">
+            <div>
+                <h1>위성 전력 전송<br><em>시뮬레이터</em></h1>
+                <p class="sub">지구 자전과 위성 궤도를 시간 단위로 재현하고,
+                지상 지점과의 전송 가능 구간을 확인합니다.</p>
+            </div>
+            <svg class="orbit" viewBox="0 0 150 150" aria-hidden="true">
+                <circle class="earth" cx="75" cy="75" r="26"/>
+                <circle class="path" cx="75" cy="75" r="58"/>
+                <g class="spin">
+                    <circle class="sat" cx="133" cy="75" r="4"/>
+                </g>
+            </svg>
+        </div>
+
+        <nav class="modules">
+            <a href="old.html" class="module">
+                <span class="mono">V1.0</span>
+                <span>
+                    <p class="name">기본 시뮬레이션</p>
+                    <p class="desc">나이지리아–남아공 고정 구간, 24시간 궤도 재현</p>
+                </span>
+                <span class="link-line">
+                    <span class="track"></span>
+                    <span class="mono state">OPEN</span>
+                </span>
+            </a>
+            <a href="new.html" class="module">
+                <span class="mono">V2.0</span>
+                <span>
+                    <p class="name">지점 입력 시뮬레이션</p>
+                    <p class="desc">위도·경도 직접 입력, 임의 지점 간 전송 가능성 판정</p>
+                </span>
+                <span class="link-line">
+                    <span class="track"></span>
+                    <span class="mono state">OPEN</span>
+                </span>
+            </a>
+            <a href="infor.html" class="module">
+                <span class="mono">DOC</span>
+                <span>
+                    <p class="name">시스템 정보</p>
+                    <p class="desc">판정 조건, 좌표 변환 로직, 사용 방법 안내</p>
+                </span>
+                <span class="link-line">
+                    <span class="track"></span>
+                    <span class="mono state">READ</span>
+                </span>
+            </a>
+        </nav>
+    </div>
+</main>
+
+<footer>
+    <span class="mono">LINK CRITERIA: DIST &lt; 0.8 R · LAT ±40°</span>
+    <span class="mono">REV 2026.07</span>
+</footer>
+
+<script>
+    // 상단 UTC 시계 — 시뮬레이션의 '시간' 개념과 연결되는 장치
+    function tick() {
+        const now = new Date();
+        const p = n => String(n).padStart(2, '0');
+        document.getElementById('clock').textContent =
+            `${p(now.getUTCHours())}:${p(now.getUTCMinutes())}:${p(now.getUTCSeconds())} UTC`;
+    }
+    tick();
+    setInterval(tick, 1000);
+</script>
+
+</body>
+</html>

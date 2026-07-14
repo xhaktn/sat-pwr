@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT-PWR · 지점 입력 시뮬레이션</title>
+<style>
+    :root {
+        --bg: #060708;
+        --panel: #0c0e10;
+        --line: #24282d;
+        --text: #e8eaed;
+        --dim: #7a828c;
+        --blue: #4d9fff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mono {
+        font-family: "IBM Plex Mono", Consolas, "Courier New", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+    }
+
+    /* ── 상단 상태 바 ───────────────────────── */
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--line);
+    }
+    header .sys::before {
+        content: "●";
+        color: var(--blue);
+        margin-right: 8px;
+        font-size: 0.6rem;
+        vertical-align: 1px;
+    }
+    .back-btn {
+        text-decoration: none;
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+        border: 1px solid var(--line);
+        padding: 7px 14px;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .back-btn:hover { color: var(--blue); border-color: var(--blue); }
+
+    /* ── 본문 레이아웃 ─────────────────────── */
+    main { flex: 1; padding: 36px 28px 56px; }
+    .wrap {
+        max-width: 1060px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 620px) 1fr;
+        gap: 32px;
+        align-items: start;
+    }
+
+    /* ── 캔버스 영역 ───────────────────────── */
+    .sim-panel { border: 1px solid var(--line); background: var(--panel); }
+    .sim-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+    }
+    .sim-head .hour {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.85rem;
+        color: var(--blue);
+        letter-spacing: 0.08em;
+    }
+    canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: #000;
+    }
+    .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+        border-top: 1px solid var(--line);
+    }
+    input[type="range"] {
+        flex: 1;
+        accent-color: var(--blue);
+    }
+
+    /* ── 우측 컨트롤 컬럼 ──────────────────── */
+    .side { display: flex; flex-direction: column; gap: 24px; }
+
+    .block-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0 0 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+    }
+    .block-title .mono { margin-right: 8px; color: var(--blue); }
+
+    .input-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .input-grid input[type="text"] { grid-column: span 2; }
+    input[type="text"], input[type="number"] {
+        background: var(--bg);
+        border: 1px solid var(--line);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 0.88rem;
+        padding: 9px 12px;
+        width: 100%;
+    }
+    input:focus {
+        outline: none;
+        border-color: var(--blue);
+    }
+    #addBtn {
+        grid-column: span 2;
+        background: var(--blue);
+        color: #06131f;
+        border: none;
+        font-weight: 700;
+        font-size: 0.9rem;
+        padding: 10px;
+        cursor: pointer;
+        font-family: inherit;
+    }
+    #addBtn:hover { background: #6cb0ff; }
+
+    /* ── 텔레메트리 목록 ───────────────────── */
+    .telemetry { border-top: 1px solid var(--line); }
+    .t-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 12px;
+        align-items: center;
+        padding: 11px 4px;
+        border-bottom: 1px solid var(--line);
+        font-size: 0.85rem;
+    }
+    .t-row .coords { color: var(--dim); font-size: 0.75rem; }
+    .t-row .dist {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.75rem;
+        color: var(--dim);
+    }
+    .t-row .state {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        min-width: 70px;
+        text-align: right;
+    }
+    .t-row .state.on { color: var(--blue); }
+    .t-row .state.off { color: var(--dim); }
+    .t-row button {
+        background: none;
+        border: 1px solid var(--line);
+        color: var(--dim);
+        font-size: 0.72rem;
+        padding: 4px 10px;
+        cursor: pointer;
+        font-family: inherit;
+    }
+    .t-row button:hover { color: var(--text); border-color: var(--dim); }
+
+    footer {
+        padding: 14px 28px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+    }
+
+    @media (max-width: 900px) {
+        .wrap { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <span class="mono sys">SAT-PWR GROUND CONSOLE · V2.0</span>
+    <a href="index.html" class="back-btn">← CONSOLE</a>
+</header>
+
+<main>
+<div class="wrap">
+
+    <!-- 좌: 시뮬레이션 캔버스 -->
+    <div class="sim-panel">
+        <div class="sim-head">
+            <span class="mono">ORBITAL VIEW · POLAR</span>
+            <span class="hour" id="titleDisplay">T+00:00</span>
+        </div>
+        <canvas id="simCanvas" width="600" height="600"></canvas>
+        <div class="slider-row">
+            <span class="mono">HOUR</span>
+            <input type="range" id="hourSlider" min="0" max="23" value="0" step="1">
+            <span class="mono" id="timeLabel" style="color: var(--text); min-width: 44px; text-align: right;">00:00</span>
+        </div>
+    </div>
+
+    <!-- 우: 지점 입력 + 텔레메트리 -->
+    <div class="side">
+        <div>
+            <h3 class="block-title"><span class="mono">INPUT</span>수신 지점 추가</h3>
+            <div class="input-grid">
+                <input type="text" id="nameInput" placeholder="지점 이름 (예: Korea)">
+                <input type="number" id="latInput" placeholder="위도 (-90 ~ 90)" step="0.0001" min="-90" max="90">
+                <input type="number" id="lonInput" placeholder="경도 (-180 ~ 180)" step="0.0001" min="-180" max="180">
+                <button id="addBtn">지점 추가</button>
+            </div>
+        </div>
+
+        <div>
+            <h3 class="block-title"><span class="mono">LINK STATUS</span>전송 가능 판정</h3>
+            <div class="telemetry" id="countryList"></div>
+        </div>
+    </div>
+
+</div>
+</main>
+
+<footer>
+    <span class="mono">LINK CRITERIA: DIST &lt; 0.8 R · LAT ±40°</span>
+    <span class="mono">REV 2026.07</span>
+</footer>
+
+<script>
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+const hourSlider = document.getElementById('hourSlider');
+const timeLabel = document.getElementById('timeLabel');
+const titleDisplay = document.getElementById('titleDisplay');
+
+const centerX = canvas.width / 2;
+const centerY = canvas.height / 2;
+const earthRadius = 150;
+const orbitRadius = earthRadius * 1.3;
+
+// 콘솔 팔레트 (캔버스 내부도 동일 색 체계 사용)
+const C = {
+    blue: '#4d9fff',
+    dim: 'rgba(122, 130, 140, 0.55)',
+    dimSolid: '#7a828c',
+    text: '#e8eaed'
+};
+
+// 국가 위도, 경도 설정 (사용자가 추가/삭제 가능)
+const countries = {
+    'Nigeria': { lat: 9.0820, lon: 8.6753 },
+    'South Africa': { lat: -30.5595, lon: 22.9375 }
+};
+
+const nameInput = document.getElementById('nameInput');
+const latInput = document.getElementById('latInput');
+const lonInput = document.getElementById('lonInput');
+const addBtn = document.getElementById('addBtn');
+const countryListDiv = document.getElementById('countryList');
+
+addBtn.addEventListener('click', addCountry);
+// Enter 키로도 추가 가능
+[nameInput, latInput, lonInput].forEach(el =>
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') addCountry(); })
+);
+
+function addCountry() {
+    const name = nameInput.value.trim();
+    const lat = parseFloat(latInput.value);
+    const lon = parseFloat(lonInput.value);
+
+    if (!name || isNaN(lat) || isNaN(lon)) {
+        alert('이름, 위도, 경도를 모두 입력해주세요.');
+        return;
+    }
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        alert('위도는 -90~90, 경도는 -180~180 범위여야 합니다.');
+        return;
+    }
+
+    countries[name] = { lat, lon };
+    nameInput.value = ''; latInput.value = ''; lonInput.value = '';
+    updateSimulation(parseInt(hourSlider.value));
+}
+
+function removeCountry(name) {
+    delete countries[name];
+    updateSimulation(parseInt(hourSlider.value));
+}
+
+// 지구 텍스처 이미지
+const earthImg = new Image();
+earthImg.src = 'image.png';
+// [버그 수정] 이미지 로드 성공/실패와 무관하게 화면을 다시 그림
+earthImg.onload = () => updateSimulation(parseInt(hourSlider.value));
+earthImg.onerror = () => updateSimulation(parseInt(hourSlider.value));
+
+hourSlider.addEventListener('input', (e) => {
+    updateSimulation(parseInt(e.target.value));
+});
+
+function rotateLon(lon, hour) {
+    return (lon + 15 * hour) % 360;
+}
+
+function latlonToXY(lat, lon) {
+    const latRad = (lat * Math.PI) / 180;
+    const lonRad = (lon * Math.PI) / 180;
+    const x = earthRadius * Math.cos(lonRad) * Math.cos(latRad);
+    const y = earthRadius * Math.sin(lonRad) * Math.cos(latRad);
+    return { x, y };
+}
+
+function getSatellitePosition(hour) {
+    const angleRad = ((hour / 24) * 360 * Math.PI) / 180;
+    return {
+        x: orbitRadius * Math.cos(angleRad),
+        y: orbitRadius * Math.sin(angleRad)
+    };
+}
+
+function drawStrokedText(text, x, y, font, fillStyle) {
+    ctx.font = font;
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 3;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = fillStyle;
+    ctx.fillText(text, x, y);
+}
+
+function updateSimulation(hour) {
+    timeLabel.textContent = `${String(hour).padStart(2, '0')}:00`;
+    titleDisplay.textContent = `T+${String(hour).padStart(2, '0')}:00`;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. 지구 이미지 (자전 회전 + 원형 클리핑)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, earthRadius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.translate(centerX, centerY);
+    const rotationRad = ((15 * hour + 105) * Math.PI) / 180;
+    ctx.rotate(rotationRad);
+    if (earthImg.complete && earthImg.naturalWidth > 0) {
+        ctx.drawImage(earthImg, -earthRadius, -earthRadius, earthRadius * 2, earthRadius * 2);
+    } else {
+        // 이미지가 없어도 지구를 어두운 원판으로 표시
+        ctx.fillStyle = '#10151b';
+        ctx.fillRect(-earthRadius, -earthRadius, earthRadius * 2, earthRadius * 2);
+    }
+    ctx.restore();
+
+    // 2. 지구 테두리
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, earthRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = C.blue;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 3. 위성 궤도 (점선)
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, orbitRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = C.dim;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.stroke();
+    ctx.restore();
+
+    // 4. 위성
+    const satPos = getSatellitePosition(hour);
+    const satCanvasX = centerX + satPos.x;
+    const satCanvasY = centerY + satPos.y;
+
+    ctx.beginPath();
+    ctx.arc(satCanvasX, satCanvasY, 5, 0, Math.PI * 2);
+    ctx.fillStyle = C.blue;
+    ctx.fill();
+    drawStrokedText('SAT-01', satCanvasX + 9, satCanvasY + 4, '11px Consolas, monospace', C.text);
+
+    // 5. 국가 지점 + 연결선 + 텔레메트리 데이터 수집
+    const telemetry = [];
+
+    for (const [name, coord] of Object.entries(countries)) {
+        const rotatedLon = rotateLon(coord.lon, hour);
+        const pos = latlonToXY(coord.lat, rotatedLon);
+
+        // 실제 물리 위치 (거리 계산용 — 클램핑 없음)
+        const trueX = centerX + pos.x;
+        const trueY = centerY + pos.y;
+
+        // [버그 수정] 표시 위치 클램핑: 저위도 지점이 테두리 밖으로
+        // 삐져나가 보이지 않도록, 마커는 테두리 안쪽(R-8)까지만 표시
+        let drawX = pos.x, drawY = pos.y;
+        const r = Math.hypot(pos.x, pos.y);
+        const maxR = earthRadius - 8;
+        if (r > maxR) {
+            drawX = pos.x * (maxR / r);
+            drawY = pos.y * (maxR / r);
+        }
+        const countryCanvasX = centerX + drawX;
+        const countryCanvasY = centerY + drawY;
+
+        // 거리 판정은 실제 위치 기준
+        const dx = (satCanvasX - trueX) / earthRadius;
+        const dy = (satCanvasY - trueY) / earthRadius;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const linked = distance < 0.8 && coord.lat >= -40 && coord.lat <= 40;
+
+        telemetry.push({ name, coord, distance, linked });
+
+        // 연결선 — 연결 시 파란 실선, 비연결 시 회색 점선(가시성 확보)
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(satCanvasX, satCanvasY);
+        ctx.lineTo(countryCanvasX, countryCanvasY);
+        if (linked) {
+            ctx.strokeStyle = C.blue;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+        } else {
+            ctx.strokeStyle = C.dim;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 5]);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // 지점 마커 (선 위에 그려지도록 나중에)
+        ctx.beginPath();
+        ctx.arc(countryCanvasX, countryCanvasY, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = linked ? C.blue : C.text;
+        ctx.fill();
+        drawStrokedText(name, countryCanvasX + 9, countryCanvasY + 4, '11px Consolas, monospace',
+            linked ? C.blue : C.text);
+    }
+
+    // 6. 태양광 방향 표시
+    const ax = centerX + earthRadius + 55;
+    const ay = centerY;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax + 28, ay);
+    ctx.strokeStyle = C.dimSolid;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ax + 28, ay);
+    ctx.lineTo(ax + 21, ay - 5);
+    ctx.lineTo(ax + 21, ay + 5);
+    ctx.fillStyle = C.dimSolid;
+    ctx.fill();
+    drawStrokedText('SUN', ax - 32, ay + 4, '11px Consolas, monospace', C.dimSolid);
+
+    // 7. 텔레메트리 패널 갱신
+    renderTelemetry(telemetry);
+}
+
+function renderTelemetry(rows) {
+    countryListDiv.innerHTML = '';
+    for (const t of rows) {
+        const row = document.createElement('div');
+        row.className = 't-row';
+
+        const nameCol = document.createElement('div');
+        nameCol.innerHTML = `${t.name}<div class="coords">LAT ${t.coord.lat} · LON ${t.coord.lon}</div>`;
+
+        const dist = document.createElement('span');
+        dist.className = 'dist';
+        dist.textContent = `D ${t.distance.toFixed(2)}R`;
+
+        const state = document.createElement('span');
+        state.className = 'state ' + (t.linked ? 'on' : 'off');
+        state.textContent = t.linked ? '● LINK' : '○ NO LINK';
+
+        const btn = document.createElement('button');
+        btn.textContent = '삭제';
+        btn.onclick = () => removeCountry(t.name);
+
+        row.append(nameCol, dist, state, btn);
+        countryListDiv.appendChild(row);
+    }
+}
+
+// [버그 수정] 이미지 로드를 기다리지 않고 즉시 첫 화면 렌더
+updateSimulation(0);
+</script>
+
+</body>
+</html>

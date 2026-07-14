@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT-PWR · 시스템 정보</title>
+<style>
+    :root {
+        --bg: #060708;
+        --panel: #0c0e10;
+        --line: #24282d;
+        --text: #e8eaed;
+        --dim: #7a828c;
+        --blue: #4d9fff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mono {
+        font-family: "IBM Plex Mono", Consolas, "Courier New", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+    }
+
+    /* ── 상단 상태 바 ───────────────────────── */
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--line);
+    }
+    header .sys::before {
+        content: "●";
+        color: var(--blue);
+        margin-right: 8px;
+        font-size: 0.6rem;
+        vertical-align: 1px;
+    }
+    .back-btn {
+        text-decoration: none;
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+        border: 1px solid var(--line);
+        padding: 7px 14px;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .back-btn:hover { color: var(--blue); border-color: var(--blue); }
+
+    /* ── 본문 ──────────────────────────────── */
+    main { flex: 1; padding: 40px 28px 64px; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+
+    .page-title {
+        margin: 0 0 32px;
+        font-size: clamp(1.6rem, 4vw, 2.2rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+    .page-title em { font-style: normal; color: var(--blue); }
+
+    /* ── 메인 탭 ───────────────────────────── */
+    .main-tabs {
+        display: flex;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 36px;
+    }
+    .tab-btn {
+        flex: 1;
+        background: none;
+        border: none;
+        border-right: 1px solid var(--line);
+        color: var(--dim);
+        padding: 16px 10px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+        transition: color 0.15s, background 0.15s;
+    }
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn .mono { font-size: 0.65rem; }
+    .tab-btn:hover { background: var(--panel); color: var(--text); }
+    .tab-btn.active {
+        color: var(--text);
+        background: var(--panel);
+        box-shadow: inset 0 -2px 0 var(--blue);
+    }
+    .tab-btn.active .mono { color: var(--blue); }
+
+    /* ── 서브 탭 ───────────────────────────── */
+    .sub-tabs { display: flex; gap: 8px; margin-bottom: 28px; }
+    .sub-btn {
+        background: none;
+        border: 1px solid var(--line);
+        color: var(--dim);
+        padding: 9px 20px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        font-family: inherit;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .sub-btn:hover { color: var(--text); border-color: var(--dim); }
+    .sub-btn.active {
+        color: var(--blue);
+        border-color: var(--blue);
+        background: var(--panel);
+    }
+
+    /* ── 콘텐츠 전환 ───────────────────────── */
+    .tab-content, .sub-content { display: none; }
+    .tab-content.active, .sub-content.active {
+        display: block;
+        animation: fadeUp 0.3s ease-out;
+    }
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .tab-content.active, .sub-content.active { animation: none; }
+    }
+
+    .section-topic {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin: 0 0 24px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    /* ── 목적 카드 ─────────────────────────── */
+    .goal-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    .goal-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: 22px;
+    }
+    .goal-card .mono { display: block; margin-bottom: 10px; }
+    .goal-card strong {
+        display: block;
+        font-size: 1.05rem;
+        color: var(--text);
+        margin-bottom: 10px;
+    }
+    .goal-card p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--dim);
+        line-height: 1.7;
+    }
+    .goal-card.final {
+        border-color: var(--blue);
+        background: var(--bg);
+    }
+    .goal-card.final .mono { color: var(--blue); }
+    .goal-card.final p { color: var(--text); }
+
+    /* ── 프로세스 플로우 ───────────────────── */
+    .process-wrapper { border-top: 1px solid var(--line); }
+    .flow-node {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        gap: 20px;
+        padding: 22px 6px;
+        border-bottom: 1px solid var(--line);
+    }
+    .node-number {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        color: var(--blue);
+        padding-top: 3px;
+    }
+    .node-title {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    .node-desc {
+        font-size: 0.88rem;
+        color: var(--dim);
+        line-height: 1.6;
+    }
+
+    /* ── 가정/스펙 카드 그리드 ─────────────── */
+    .hypothesis-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .hyp-card {
+        border: 1px solid var(--line);
+        padding: 14px;
+    }
+    .hyp-card strong {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--text);
+        margin-bottom: 5px;
+    }
+    .hyp-card p {
+        margin: 0;
+        font-size: 0.82rem;
+        color: var(--dim);
+        line-height: 1.5;
+    }
+    .hyp-card.span-full { grid-column: span 2; }
+
+    /* ── 정보 카드 (세로 목록) ─────────────── */
+    .eval-vertical-list { display: flex; flex-direction: column; gap: 14px; }
+    .eval-card-large {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: 22px;
+    }
+    .eval-card-large strong {
+        display: block;
+        font-size: 1rem;
+        color: var(--text);
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px dashed var(--line);
+    }
+    .eval-card-large p {
+        margin: 0 0 8px;
+        font-size: 0.9rem;
+        color: var(--dim);
+        line-height: 1.7;
+    }
+    .eval-card-large p:last-child { margin-bottom: 0; }
+    .eval-card-large p strong,
+    .inner-spec-list strong {
+        display: inline;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font-size: inherit;
+        color: var(--text);
+    }
+    .inner-spec-list {
+        margin: 6px 0 0;
+        padding-left: 18px;
+        color: var(--dim);
+        font-size: 0.88rem;
+        line-height: 1.7;
+    }
+    .inner-spec-list li { margin-bottom: 8px; }
+    .inner-spec-list li:last-child { margin-bottom: 0; }
+
+    footer {
+        padding: 14px 28px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+    }
+
+    @media (max-width: 640px) {
+        .main-tabs { flex-direction: column; }
+        .tab-btn { border-right: none; border-bottom: 1px solid var(--line); }
+        .tab-btn:last-child { border-bottom: none; }
+        .goal-grid, .hypothesis-grid { grid-template-columns: 1fr; }
+        .hyp-card.span-full { grid-column: auto; }
+        .sub-tabs { flex-wrap: wrap; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <span class="mono sys">SAT-PWR GROUND CONSOLE</span>
+    <a href="index.html" class="back-btn">← CONSOLE</a>
+</header>
+
+<main>
+<div class="wrap">
+
+    <h1 class="page-title">시스템 <em>정보</em></h1>
+
+    <!-- 메인 탭 -->
+    <div class="main-tabs">
+        <button class="tab-btn active" onclick="openMainTab(event, 'goal-tab')">
+            <span class="mono">SEC 01</span>최종 목적
+        </button>
+        <button class="tab-btn" onclick="openMainTab(event, 'sdg-tab')">
+            <span class="mono">SEC 02</span>SDG 선택
+        </button>
+        <button class="tab-btn" onclick="openMainTab(event, 'solar-tab')">
+            <span class="mono">SEC 03</span>개념에 대한 정보
+        </button>
+    </div>
+
+    <!-- ========== [탭 1] 최종 목적 ========== -->
+    <div id="goal-tab" class="tab-content active">
+        <h2 class="section-topic">학년별 연구 목적 및 시스템 로드맵</h2>
+
+        <div class="goal-grid">
+            <div class="goal-card">
+                <span class="mono">PHASE 1 · GRADE 2</span>
+                <strong>2학년 목적</strong>
+                <p>우주 태양전지 기반 전력 전송 가능 시간 파악 시뮬레이션을 설계하여, 안정적인 전력 공급 기술의 적용 가능성을 분석하는 것이 목표.</p>
+            </div>
+            <div class="goal-card">
+                <span class="mono">PHASE 2 · GRADE 3</span>
+                <strong>3학년 목적</strong>
+                <p>우주 환경(온도, 방사선)에 따른 태양전지의 효율성을 파악하는 시뮬레이션을 설계하여, 효율성을 보완할 수 있는 최적화 방안을 마련하는 것이 목표.</p>
+            </div>
+        </div>
+
+        <div class="goal-card final">
+            <span class="mono">FINAL OBJECTIVE</span>
+            <strong>최종 목적</strong>
+            <p>정지궤도 위성 기반의 우주 태양전지 전력 전송 시간 예측 알고리즘을 구축하고, 환경 변화(온도·방사선)에 따른 효율 저하를 보완하여, 대기 및 기상 제약이 없는 차세대 무선 전력 공급 시스템의 실현 가능성을 종합 분석함.</p>
+        </div>
+    </div>
+
+    <!-- ========== [탭 2] SDG 선택 ========== -->
+    <div id="sdg-tab" class="tab-content">
+        <div class="sub-tabs">
+            <button class="sub-btn grade-btn active" onclick="openSubTab(event, 'grade2-content')">2학년 과정</button>
+            <button class="sub-btn grade-btn" onclick="openSubTab(event, 'grade3-content')">3학년 과정</button>
+        </div>
+
+        <!-- 2학년 -->
+        <div id="grade2-content" class="sub-content active">
+            <h2 class="section-topic">주제 — 우주 태양전지 위성의 전력 전송 가능 시간 예측 알고리즘 설계</h2>
+            <div class="process-wrapper">
+                <div class="flow-node">
+                    <div class="node-number">STEP 01</div>
+                    <div>
+                        <div class="node-title">선행 기술 조사 및 탐구</div>
+                        <div class="node-desc">태양전지 구조 및 무선 전력 전송(WPT)의 핵심 공학적 메커니즘 분석</div>
+                    </div>
+                </div>
+                <div class="flow-node">
+                    <div class="node-number">STEP 02</div>
+                    <div>
+                        <div class="node-title">변수 기하학적 매핑 및 궤도 선정</div>
+                        <div class="node-desc">지구 전력 수신 거점(나이지리아, 남아공) 선정 및 수신 한계각 연산 레이아웃 확립</div>
+                    </div>
+                </div>
+                <div class="flow-node">
+                    <div class="node-number">STEP 03</div>
+                    <div>
+                        <div class="node-title">알고리즘 설계를 위한 시스템 핵심 가정</div>
+                        <div class="hypothesis-grid">
+                            <div class="hyp-card"><strong>1) 항성 광원 상시 확보</strong><p>궤도상 차폐물 없이 항상 100% 태양 빛 공급.</p></div>
+                            <div class="hyp-card"><strong>2) 환경 간섭 배제</strong><p>7월 중순 환경 기준으로 공전축 간섭 배제.</p></div>
+                            <div class="hyp-card"><strong>3) 정지궤도 동기화</strong><p>고도 36,000km 배치로 지구 자전 주기와 일치.</p></div>
+                            <div class="hyp-card"><strong>4) 궤도의 완벽한 원형화</strong><p>기하학적 정원(Circle) 구조 적용.</p></div>
+                            <div class="hyp-card span-full"><strong>5) 전송 임계각 범위 제한</strong><p>전력 수신이 가능한 유효 위도 범위를 0도 ~ ±40도로 한정.</p></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flow-node">
+                    <div class="node-number">STEP 04</div>
+                    <div>
+                        <div class="node-title">시뮬레이션 알고리즘 빌딩</div>
+                        <div class="node-desc">확정 가정을 기반으로 기하학적 유효 거리를 실시간으로 연산하는 시뮬레이터 제작 완료</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3학년 -->
+        <div id="grade3-content" class="sub-content">
+            <h2 class="section-topic">주제 — 우주 방사선 및 극저온 환경에 따른 태양전지 열화 시뮬레이터 제작</h2>
+            <div class="process-wrapper">
+                <div class="flow-node">
+                    <div class="node-number">STEP 01</div>
+                    <div>
+                        <div class="node-title">선행 기술 및 논문 데이터 조사</div>
+                        <div class="node-desc">태양전지의 구체적인 물리적 변성 유도 요소를 수학적 계수로 규명</div>
+                        <div class="hypothesis-grid">
+                            <div class="hyp-card"><strong>(1) 방사선 상관관계 계수</strong><p>우주 방사선 누적 조사량(fluence)에 따른 효율 감소 비율 계수 도출</p></div>
+                            <div class="hyp-card"><strong>(2) 온도 상관관계 계수</strong><p>극저온 및 고온 환경에서의 전압 변화율과 효율 손실 온도 계수 도출</p></div>
+                            <div class="hyp-card span-full"><strong>(3) 수명 상관관계 계수</strong><p>작동 환경에 따른 열화율 누적치와 소자 기대 수명 간의 상관관계 정립</p></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flow-node">
+                    <div class="node-number">STEP 02</div>
+                    <div>
+                        <div class="node-title">물리 이론식 구축</div>
+                        <div class="node-desc">논문 계수를 기반으로 환경 변수 입력 시 출력 전력을 도출하는 물리 공식을 설계하고 알고리즘에 정밀 매핑</div>
+                    </div>
+                </div>
+                <div class="flow-node">
+                    <div class="node-number">STEP 03</div>
+                    <div>
+                        <div class="node-title">시뮬레이션 가상 우주 환경 가정</div>
+                        <div class="hypothesis-grid">
+                            <div class="hyp-card"><strong>1) 표준 방사선 환경 수립</strong><p>정지궤도(GEO)의 연간 평균 방사선 노출 가혹도를 기준으로 계산</p></div>
+                            <div class="hyp-card"><strong>2) 이중 극단 온도 사이클</strong><p>일식이 발생해 차폐되는 극저온 구간과 상시 직사광이 닿는 고온 구간 분리</p></div>
+                            <div class="hyp-card span-full"><strong>3) 열화 저항 보완 가속 계수</strong><p>보완 신소재 코팅 및 열 감쇄 차폐막 적용 시의 효율 방어율 변수를 설정</p></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flow-node">
+                    <div class="node-number">STEP 04</div>
+                    <div>
+                        <div class="node-title">실시간 열화 시뮬레이터 알고리즘 설계</div>
+                        <div class="node-desc">시간 경과 및 실시간 우주 기상 데이터에 따라 태양전지의 잔존 효율과 기대 수명 그래프를 동적으로 연산 및 출력하는 모듈 구현</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== [탭 3] 개념에 대한 정보 ========== -->
+    <div id="solar-tab" class="tab-content">
+        <div class="sub-tabs">
+            <button class="sub-btn solar-tech-btn active" onclick="openSubTab(event, 'info-solar-content')">(1) 우주 태양전지 구조 및 원리</button>
+            <button class="sub-btn solar-tech-btn" onclick="openSubTab(event, 'info-tech-content')">(2) 전력 전송 및 궤도 기술</button>
+        </div>
+
+        <div id="info-solar-content" class="sub-content active">
+            <div class="eval-vertical-list">
+                <div class="eval-card-large">
+                    <strong>(1-1) 우주 태양전지 정의 및 활용처</strong>
+                    <p>우주 방사선, 극심한 온도 변화 등 혹독한 환경을 견디며 인공위성 및 탐사선에 안정적인 전력을 공급하는 특수 광전 소자입니다.</p>
+                </div>
+                <div class="eval-card-large">
+                    <strong>(1-2) 주요 우주 태양전지 종류</strong>
+                    <ul class="inner-spec-list">
+                        <li><strong>초기 실리콘(Si) 태양전지:</strong> 초창기 모델로 방사선 열화가 빠르고 효율 한계(15%)가 존재함.</li>
+                        <li><strong>고효율 다중접합 태양전지:</strong> III-V족 화합물 반도체 기반. 다른 밴드갭 물질을 쌓아 효율을 30% 이상 극대화한 주력 소자.</li>
+                        <li><strong>페로브스카이트 / 실리콘 탠덤 전지:</strong> 차세대 전지로 경량화 및 이론적 한계 효율 극복 가능.</li>
+                        <li><strong>유기/무기 하이브리드 전지:</strong> 유연함과 내구성을 확보하여 롤러블 패널 등에 유리함.</li>
+                    </ul>
+                </div>
+                <div class="eval-card-large">
+                    <strong>(1-3) 시스템 구성 및 기본 작동 원리</strong>
+                    <ul class="inner-spec-list">
+                        <li><strong>3중 분담 구조:</strong> 탑 셀(단파장 흡수/고전압), 중간 셀(중간 파장 흡수), 저 셀(장파장 흡수).</li>
+                        <li><strong>작동 메커니즘:</strong> 빛 흡수 후 생성된 전자-정공 쌍이 <strong>터널 접합층(Tunnel Junction)을 통해 상하로 이동</strong>하여 손실 없이 전류를 발생시킴.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="info-tech-content" class="sub-content">
+            <div class="eval-vertical-list">
+                <div class="eval-card-large">
+                    <strong>(2-1) 우주 태양광 발전 및 무선 전력 전송 (SBSP)</strong>
+                    <p><strong>SBSP(Space-Based Solar Power)</strong>: 우주에서 24시간 상시 전력을 생산한 뒤, 마이크로파 또는 레이저 빔 형태로 변환하여 지상 안테나(렉테나)로 전송하는 기술입니다.</p>
+                </div>
+                <div class="eval-card-large">
+                    <strong>(2-2) 유효 전력 전송 조건</strong>
+                    <ul class="inner-spec-list">
+                        <li><strong>정밀 지향성 빔 포인팅:</strong> 수천 km 상공에서 지상 타깃에 정밀하게 조향하여 에너지 유실 방지.</li>
+                        <li><strong>대기창 주파수 매칭:</strong> 대기 흡수 및 기상 간섭이 적은 2.45GHz 또는 5.8GHz 마이크로파 대역 채택.</li>
+                        <li><strong>임계 기하각 산출:</strong> 송수신 위치에 따른 물리적 한계각(0도 ~ ±40도 내외) 연산.</li>
+                    </ul>
+                </div>
+                <div class="eval-card-large">
+                    <strong>(2-3) 정지궤도 (GEO) 역학 특징</strong>
+                    <p>적도 상공 약 36,000km 고도 궤도로, 공전 주기가 지구 자전 주기(24시간)와 일치해 지상에서 보면 정지해 있는 것처럼 보입니다.</p>
+                    <p>이 장점 덕분에 안테나를 고정해 둔 채 특정 전력 소외 지역에 <strong>24시간 상시 중단 없는 무선 전력 공급</strong>이 가능합니다.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</main>
+
+<footer>
+    <span class="mono">LINK CRITERIA: DIST &lt; 0.8 R · LAT ±40°</span>
+    <span class="mono">REV 2026.07</span>
+</footer>
+
+<script>
+    function openMainTab(evt, tabId) {
+        const tabContents = document.getElementsByClassName("tab-content");
+        for (let i = 0; i < tabContents.length; i++) tabContents[i].classList.remove("active");
+        const tabBtns = document.getElementsByClassName("tab-btn");
+        for (let i = 0; i < tabBtns.length; i++) tabBtns[i].classList.remove("active");
+        document.getElementById(tabId).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+
+    function openSubTab(evt, subId) {
+        const currentTabContent = evt.currentTarget.closest('.tab-content');
+        const subContents = currentTabContent.getElementsByClassName("sub-content");
+        for (let i = 0; i < subContents.length; i++) subContents[i].classList.remove("active");
+        const btnClass = evt.currentTarget.classList[1];
+        const subBtns = currentTabContent.getElementsByClassName(btnClass);
+        for (let i = 0; i < subBtns.length; i++) subBtns[i].classList.remove("active");
+        document.getElementById(subId).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+</script>
+
+</body>
+</html>

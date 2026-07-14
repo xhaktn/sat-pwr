@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAT-PWR · 태양전지 열화 시뮬레이터</title>
+<style>
+    :root {
+        --bg: #060708;
+        --panel: #0c0e10;
+        --line: #24282d;
+        --text: #e8eaed;
+        --dim: #7a828c;
+        --blue: #4d9fff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .mono {
+        font-family: "IBM Plex Mono", Consolas, "Courier New", monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+    }
+
+    /* ── 상단 상태 바 ───────────────────────── */
+    header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--line);
+    }
+    header .sys::before {
+        content: "●";
+        color: var(--blue);
+        margin-right: 8px;
+        font-size: 0.6rem;
+        vertical-align: 1px;
+    }
+    .back-btn {
+        text-decoration: none;
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        color: var(--dim);
+        border: 1px solid var(--line);
+        padding: 7px 14px;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .back-btn:hover { color: var(--blue); border-color: var(--blue); }
+
+    /* ── 본문 ──────────────────────────────── */
+    main { flex: 1; padding: 40px 28px 64px; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+
+    .page-title {
+        margin: 0 0 6px;
+        font-size: clamp(1.5rem, 4vw, 2rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+    }
+    .page-title em { font-style: normal; color: var(--blue); }
+    .page-sub {
+        margin: 0 0 36px;
+        color: var(--dim);
+        font-size: 0.92rem;
+        line-height: 1.6;
+    }
+
+    /* ── 섹션 블록 ─────────────────────────── */
+    .block { margin-bottom: 36px; }
+    .block-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0 0 18px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line);
+    }
+    .block-title .mono { margin-right: 10px; color: var(--blue); }
+
+    /* ── 입력 행 ───────────────────────────── */
+    .row { padding: 16px 4px; border-bottom: 1px solid var(--line); }
+    .row:last-child { border-bottom: none; }
+    .row label {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 0.9rem;
+        color: var(--text);
+        margin-bottom: 10px;
+    }
+    .row label b {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.85rem;
+        font-weight: 400;
+        color: var(--blue);
+        letter-spacing: 0.04em;
+        text-align: right;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--blue); }
+    select {
+        width: 100%;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        color: var(--text);
+        padding: 9px 12px;
+        font-family: inherit;
+        font-size: 0.88rem;
+    }
+    select:focus { outline: none; border-color: var(--blue); }
+    .hint { font-size: 0.78rem; color: var(--dim); margin-top: 8px; line-height: 1.6; }
+
+    /* ── 출력 카드 ─────────────────────────── */
+    .grid3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+    .out {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: 16px 14px;
+        text-align: center;
+    }
+    .out .val {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--blue);
+    }
+    .out .val.warn { color: var(--text); }
+    .out .val.danger { color: #ffffff; }
+    .out .status {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.62rem;
+        letter-spacing: 0.1em;
+        margin-top: 4px;
+        color: var(--blue);
+    }
+    .out .status.warn { color: var(--dim); }
+    .out .status.danger {
+        color: #000;
+        background: #fff;
+        display: inline-block;
+        padding: 1px 7px;
+    }
+    .out .lbl { font-size: 0.75rem; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+
+    /* ── 게이지 바 ─────────────────────────── */
+    .barwrap {
+        border: 1px solid var(--line);
+        height: 12px;
+        margin-top: 14px;
+        position: relative;
+    }
+    .bar { height: 100%; background: var(--blue); transition: width 0.2s, background 0.2s; }
+    .barwrap::after {
+        content: "";
+        position: absolute;
+        top: -3px; bottom: -3px;
+        left: 80%;
+        border-left: 1px dashed var(--dim);
+    }
+    .bar-scale {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 5px;
+    }
+
+    /* ── 수식 패널 ─────────────────────────── */
+    .formula {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--blue);
+        padding: 13px 16px;
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 0.78rem;
+        color: var(--dim);
+        margin-top: 14px;
+        line-height: 1.8;
+        overflow-x: auto;
+    }
+    .formula b { color: var(--blue); font-weight: 700; }
+
+    /* ── 가정 목록 ─────────────────────────── */
+    .assumptions {
+        font-size: 0.8rem;
+        color: var(--dim);
+        line-height: 1.8;
+        margin: 0;
+        padding-left: 18px;
+    }
+    .assumptions li { margin-bottom: 6px; }
+
+    footer {
+        padding: 14px 28px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+    }
+
+    @media (max-width: 640px) {
+        .grid3 { grid-template-columns: 1fr; }
+        .row label { flex-direction: column; align-items: flex-start; gap: 4px; }
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <span class="mono sys">SAT-PWR GROUND CONSOLE · V3.2</span>
+    <a href="index.html" class="back-btn">← CONSOLE</a>
+</header>
+
+<main>
+<div class="wrap">
+
+    <h1 class="page-title">태양전지 발전량 · <em>수명 예측</em></h1>
+    <p class="page-sub">온도(순간 효율)와 방사선 누적선량(영구 열화)을 결합한 정지궤도(GEO) 태양전지 모델 — 셀 종류별 방사선 잔존율·온도계수 적용</p>
+
+    <!-- ① 입력 -->
+    <div class="block">
+        <h2 class="block-title"><span class="mono">SEC 01</span>입력값 설정</h2>
+
+        <div class="row">
+            <label>태양전지 종류 <b id="cellVal">III-V 다중접합</b></label>
+            <select id="cellType">
+                <option value="iiiv" selected>III-V 다중접합 (기준선량에서 22% 열화 · γ -0.12%/°C)</option>
+                <option value="pero">전페로브스카이트 탠덤 (기준선량에서 6% 열화 · γ -0.20%/°C)</option>
+            </select>
+            <div class="hint">Lang et al., Adv. Energy Mater. (2021): 68 MeV 양성자 10¹³ p⁺/cm² 조사 시 전페로브스카이트 탠덤은 &lt;6%, 시판 내방사선 우주용 III-V는 &gt;22% 열화. 온도계수도 셀 종류에 따라 자동 적용됩니다 (III-V/GaAs: -0.12%/°C, 페로브스카이트: -0.20%/°C).</div>
+        </div>
+
+        <div class="row">
+            <label>현재 궤도상 온도 (T) <b id="tVal">25°C</b></label>
+            <input type="range" id="temp" min="-150" max="130" value="25" step="1">
+            <div class="hint">정지궤도(GEO) 위성은 태양 노출 시 약 +100~120°C, 지구 그림자(이클립스)에 들어가면 약 -100~-150°C까지 떨어집니다. 슬라이더로 낮/밤 조건을 재현해보세요.</div>
+        </div>
+
+        <div class="row">
+            <label>운영 경과 기간 (t) <b id="yearVal">0 년</b></label>
+            <input type="range" id="years" min="0" max="20" value="0" step="0.5">
+            <div class="hint">위성이 궤도에 올라간 뒤 지금까지 누적 운영된 기간입니다. (설계수명 15년 기준)</div>
+        </div>
+
+        <div class="row">
+    <label>
+        <span>GEO 연간 등가 선량 (Φ<sub>yr</sub>)</span>
+        <b id="fluVal">1.0 ×10¹² p⁺/cm²·yr</b>
+    </label>
+    <input type="range" id="fluence" min="0.1" max="10" value="1" step="0.1">
+    <div class="hint">임무 궤도의 방사선 가혹도 가정 (68 MeV 양성자 등가 기준). 값이 클수록 열화가 빠릅니다. 실제 GEO 환경은 전자·양성자 혼합 스펙트럼이므로 이 값은 등가 환산 가정치입니다.</div>
+</div>
+    </div>
+
+    <!-- ② 계산 결과 -->
+    <div class="block">
+        <h2 class="block-title"><span class="mono">SEC 02</span>계산 결과</h2>
+        <div class="grid3">
+            <div class="out">
+                <div class="val" id="outTempFactor">100.0%</div>
+                <div class="status" id="stTemp">NOMINAL</div>
+                <div class="lbl">온도 보정 계수<br>(순간 효율 변화)</div>
+            </div>
+            <div class="out">
+                <div class="val" id="outDegFactor">100.0%</div>
+                <div class="status" id="stDeg">NOMINAL</div>
+                <div class="lbl">방사선 누적 보존율<br>(초기 대비 잔존 성능)</div>
+            </div>
+            <div class="out">
+                <div class="val" id="outFinal">100.0%</div>
+                <div class="status" id="stFinal">NOMINAL</div>
+                <div class="lbl">최종 발전 효율<br>(기준 대비)</div>
+            </div>
+        </div>
+
+        <div class="barwrap"><div class="bar" id="finalBar" style="width:100%;"></div></div>
+        <div class="bar-scale">
+            <span class="mono">0%</span>
+            <span class="mono">EOL 80%</span>
+            <span class="mono">100%</span>
+        </div>
+
+        <div class="formula" id="formulaText"></div>
+    </div>
+
+    <!-- ③ 잔여 수명 -->
+    <div class="block">
+        <h2 class="block-title"><span class="mono">SEC 03</span>잔여 수명 예측</h2>
+        <div class="grid3">
+            <div class="out">
+                <div class="val" id="outEOLyear">-</div>
+                <div class="status">PROJECTION</div>
+                <div class="lbl">수명종료(EOL) 예상 시점<br>(초기 대비 80% 기준)</div>
+            </div>
+            <div class="out">
+                <div class="val" id="outRemain">-</div>
+                <div class="status" id="stRemain">PROJECTION</div>
+                <div class="lbl">현재 시점 기준<br>잔여 수명</div>
+            </div>
+            <div class="out">
+                <div class="val" id="outHealth">100.0%</div>
+                <div class="status" id="stHealth">NOMINAL</div>
+                <div class="lbl">현재 태양전지<br>잔존 성능 (방사선 기준)</div>
+            </div>
+        </div>
+        <div class="hint" style="margin-top:14px;">
+            * EOL(End of Life) 기준은 위성 산업에서 흔히 쓰이는 "초기 성능 대비 80%"를 적용했습니다. 이 값은 방사선 열화에만 근거하며, 온도는 가역적 요인이라 수명 계산에는 포함하지 않았습니다.
+        </div>
+    </div>
+
+    <!-- ④ 가정 및 한계 -->
+    <div class="block">
+        <h2 class="block-title"><span class="mono">SEC 04</span>모델 가정 및 한계</h2>
+        <ul class="assumptions">
+            <li>온도 보정: 셀 종류별 선형 온도계수 적용 — III-V 다중접합 γ ≈ -0.12%/°C (GaAs 계열 문헌값), 페로브스카이트 γ ≈ -0.20%/°C (문헌 보고 범위 약 -0.17~-0.25%/°C의 대표값). 기준온도 25°C</li>
+            <li>방사선 열화: 선량 기반 지수 모델 D(t) = R^(Φ_yr·t / Φ₀). 기준점은 Lang et al. (2021)의 68 MeV 양성자 Φ₀ = 10¹³ p⁺/cm² 조사 실험 — 전페로브스카이트 탠덤 잔존율 R = 0.94 (&lt;6% 열화의 보수적 상한 적용), III-V R = 0.78 (&gt;22% 열화)</li>
+            <li>연간 등가 선량 Φ_yr는 사용자 가정값: 실제 GEO 방사선은 전자·양성자 혼합 연속 스펙트럼이므로, 엄밀하게는 변위손상선량(DDD) 방법으로 등가 환산 필요. 본 모델은 그 환산을 단일 슬라이더 가정으로 단순화함</li>
+            <li>단일 선량 실험점(Φ₀) 하나로 지수 모델을 외삽하므로, 저선량·고선량 영역의 비선형 거동은 반영되지 않음</li>
+            <li>두 요인(온도·방사선)은 서로 독립적으로 작용한다고 가정하고 곱셈으로 결합: 최종효율 = 기준효율 × 온도보정 × 방사선보존율</li>
+            <li>극저온(-150°C 부근)에서는 선형 온도계수 모델이 실제 물성과 어긋날 수 있음</li>
+            <li>페로브스카이트의 수분·산소·자외선에 의한 화학적 열화는 본 모델 범위 외 (SiO₂ 봉지막 적용 및 우주 진공 환경 가정)</li>
+            <li>실제 검증은 정식 열진공챔버(Thermal Vacuum Chamber) 및 입자가속기 조사 실험이 필요함</li>
+        </ul>
+    </div>
+
+</div>
+</main>
+
+<footer>
+    <span class="mono">EOL: 80% BOL · γ CELL-SPECIFIC · Φ₀ 10¹³ p⁺/cm²</span>
+    <span class="mono">REV 2026.07</span>
+</footer>
+
+<script>
+    const cellType = document.getElementById('cellType');
+    const tempSlider = document.getElementById('temp');
+    const yearSlider = document.getElementById('years');
+    const fluSlider = document.getElementById('fluence');
+
+    const cellVal = document.getElementById('cellVal');
+    const tVal = document.getElementById('tVal');
+    const yearVal = document.getElementById('yearVal');
+    const fluVal = document.getElementById('fluVal');
+
+    const outTempFactor = document.getElementById('outTempFactor');
+    const outDegFactor = document.getElementById('outDegFactor');
+    const outFinal = document.getElementById('outFinal');
+    const finalBar = document.getElementById('finalBar');
+    const formulaText = document.getElementById('formulaText');
+
+    const outEOLyear = document.getElementById('outEOLyear');
+    const outRemain = document.getElementById('outRemain');
+    const outHealth = document.getElementById('outHealth');
+
+    const stTemp = document.getElementById('stTemp');
+    const stDeg = document.getElementById('stDeg');
+    const stFinal = document.getElementById('stFinal');
+    const stRemain = document.getElementById('stRemain');
+    const stHealth = document.getElementById('stHealth');
+
+    // ── 모델 상수 ──────────────────────────────
+    const REF_TEMP = 25;         // 기준 온도 (°C)
+    const EOL_THRESHOLD = 0.80;  // EOL 기준: 초기 대비 80%
+    const PHI_0 = 1e13;          // 기준 선량 (p+/cm²) — Lang et al. 2021
+
+    // 셀 종류별 문헌 계수: 방사선 잔존율 R + 온도계수 γ
+    const CELL_DATA = {
+        iiiv: {
+            retention: 0.78,
+            gamma: -0.0012,   // -0.12%/°C (GaAs 다중접합)
+            name: 'III-V 다중접합'
+        },
+        pero: {
+            retention: 0.94,
+            gamma: -0.0020,   // -0.20%/°C (페로브스카이트 문헌 범위 약 -0.17~-0.25 중 대표값)
+            name: '전페로브스카이트 탠덤'
+        }
+    };
+
+    // 상태 판정을 값/상태 요소에 일괄 적용
+    function setState(valEl, stEl, level) {
+        // level: 'ok' | 'warn' | 'danger'
+        valEl.className = 'val' + (level === 'ok' ? '' : ' ' + level);
+        stEl.className = 'status' + (level === 'ok' ? '' : ' ' + level);
+        stEl.textContent = level === 'ok' ? 'NOMINAL' : level === 'warn' ? 'CAUTION' : 'CRITICAL';
+    }
+
+    function compute() {
+        const cell = CELL_DATA[cellType.value];
+        const T = parseFloat(tempSlider.value);
+        const t = parseFloat(yearSlider.value);
+        const phiYr = parseFloat(fluSlider.value) * 1e12; // p+/cm²·yr
+
+        // 입력값 표시
+        cellVal.textContent = cell.name;
+        tVal.textContent = T + '°C';
+        yearVal.textContent = t + ' 년';
+        fluVal.textContent = parseFloat(fluSlider.value).toFixed(1) + ' ×10¹² p⁺/cm²·yr';
+
+        // ── 온도 보정 계수 (가역적, 순간 · 셀별 γ 적용) ──
+        const tempFactor = 1 + cell.gamma * (T - REF_TEMP);
+
+        // ── 방사선 누적 보존율 (비가역적, 선량 기반) ──
+        // D(t) = R^(Φ_yr·t / Φ₀)
+        const cumulativePhi = phiYr * t;
+        const degFactor = Math.pow(cell.retention, cumulativePhi / PHI_0);
+
+        // ── 최종 발전 효율 ──
+        const finalEff = tempFactor * degFactor;
+
+        outTempFactor.textContent = (tempFactor * 100).toFixed(1) + '%';
+        outDegFactor.textContent = (degFactor * 100).toFixed(1) + '%';
+        outFinal.textContent = (finalEff * 100).toFixed(1) + '%';
+
+        setState(outTempFactor, stTemp, tempFactor < 1 ? 'warn' : 'ok');
+        setState(outDegFactor, stDeg, degFactor < 0.85 ? 'danger' : degFactor < 0.95 ? 'warn' : 'ok');
+        setState(outFinal, stFinal, finalEff < 0.7 ? 'danger' : finalEff < 0.9 ? 'warn' : 'ok');
+
+        const barPct = Math.max(0, Math.min(100, finalEff * 100));
+        finalBar.style.width = barPct + '%';
+        finalBar.style.background =
+            finalEff < 0.7 ? '#ffffff' : finalEff < 0.9 ? '#7a828c' : 'var(--blue)';
+
+        // ── 수식 패널 ──
+        const doseRatio = cumulativePhi / PHI_0;
+        formulaText.innerHTML =
+            `[${cell.name}] γ = ${(cell.gamma * 100).toFixed(2)}%/°C · R = ${cell.retention}<br>` +
+            `온도보정 = 1 + γ×(T-25) = 1 + (${cell.gamma})×(${T}-25) = ${tempFactor.toFixed(3)}<br>` +
+            `누적선량 Φ = Φ_yr × t = ${(phiYr/1e12).toFixed(1)}×10¹² × ${t} = ${doseRatio.toFixed(2)} Φ₀<br>` +
+            `방사선보존율 = R^(Φ/Φ₀) = ${cell.retention}^${doseRatio.toFixed(2)} = ${degFactor.toFixed(3)}<br>` +
+            `최종효율 = ${tempFactor.toFixed(3)} × ${degFactor.toFixed(3)} = <b>${finalEff.toFixed(3)}</b> (${(finalEff*100).toFixed(1)}%)`;
+
+        // ── EOL 계산 ──
+        // R^(Φ_yr·t/Φ₀) = 0.8 → t = [log(0.8)/log(R)] × (Φ₀/Φ_yr)
+        const eolYear = (Math.log(EOL_THRESHOLD) / Math.log(cell.retention)) * (PHI_0 / phiYr);
+
+        if (eolYear > 99) {
+            outEOLyear.textContent = '99+ 년';
+        } else {
+            outEOLyear.textContent = eolYear.toFixed(1) + ' 년';
+        }
+
+        const remain = eolYear - t;
+        if (remain > 0) {
+            outRemain.textContent = remain > 99 ? '99+ 년' : remain.toFixed(1) + ' 년';
+            outRemain.className = 'val';
+            stRemain.className = 'status';
+            stRemain.textContent = 'PROJECTION';
+        } else {
+            outRemain.textContent = '수명 초과';
+            outRemain.className = 'val danger';
+            stRemain.className = 'status danger';
+            stRemain.textContent = 'EXPIRED';
+        }
+
+        outHealth.textContent = (degFactor * 100).toFixed(1) + '%';
+        setState(outHealth, stHealth, degFactor < 0.85 ? 'danger' : degFactor < 0.95 ? 'warn' : 'ok');
+    }
+
+    [cellType, tempSlider, yearSlider, fluSlider].forEach(el =>
+        el.addEventListener('input', compute)
+    );
+    compute();
+</script>
+
+</body>
+</html>
